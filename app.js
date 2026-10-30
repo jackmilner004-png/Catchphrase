@@ -7,8 +7,9 @@
   const FILLER_CELLS = 34;   // how many phrases whizz past before the reel lands
 
   const PHRASES = window.PHRASES;
-  const byId = new Map(PHRASES.map((p) => [p.id, p]));
-  const KIND_LABEL = { jargon: "Corporate jargon", vocab: "Niche vocab", law: "Law / principle" };
+  const byId = new Map(PHRASES.map((p) => [p.id, p])); // includes retired phrases, for history
+  const ACTIVE = PHRASES.filter((p) => !p.retired);
+  const KIND_LABEL = { jargon: "Corporate jargon", vocab: "Posh vocab", latin: "Latin & French", law: "Rule of thumb" };
 
   const $ = (id) => document.getElementById(id);
   const el = {
@@ -90,9 +91,9 @@
       const e = entryFor(player.id, shiftDay(today, -i));
       if (e) recent.add(e.p);
     }
-    let pool = PHRASES.filter((p) => !takenToday.has(p.id) && !recent.has(p.id));
-    if (!pool.length) pool = PHRASES.filter((p) => !takenToday.has(p.id));
-    if (!pool.length) pool = PHRASES;
+    let pool = ACTIVE.filter((p) => !takenToday.has(p.id) && !recent.has(p.id));
+    if (!pool.length) pool = ACTIVE.filter((p) => !takenToday.has(p.id));
+    if (!pool.length) pool = ACTIVE;
     const seed = skipped.length ? `${today}|${player.id}|skip${skipped.length}` : `${today}|${player.id}`;
     const pick = pool[Math.floor(rng(hash(seed))() * pool.length)];
     todays[player.id] = skipped.length ? { p: pick.id, done: false, skipped } : { p: pick.id, done: false };
@@ -209,7 +210,7 @@
     div.textContent = text;
     return div;
   }
-  const randomPhrase = () => PHRASES[Math.floor(Math.random() * PHRASES.length)];
+  const randomPhrase = () => ACTIVE[Math.floor(Math.random() * ACTIVE.length)];
   const rowHeight = () => el.strip.firstElementChild?.offsetHeight || 84;
 
   function showStatic(phraseId) {

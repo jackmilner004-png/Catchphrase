@@ -190,6 +190,7 @@ button { font: inherit; cursor: pointer; }
 
 .cell[data-kind="vocab"] { color: #5a1f8a; }
 .cell[data-kind="law"]   { color: #0d5c63; }
+.cell[data-kind="latin"] { color: #8a3b12; }
 .cell.idle { color: #b8a9a0; font-family: "Bungee", sans-serif; font-weight: 400; letter-spacing: 2px; }
 
 .reel.win .cell.target { animation: flash 0.35s ease-in-out 4 alternate; }
@@ -274,6 +275,7 @@ select {
 }
 .chip[data-kind="vocab"] { background: #c9a2f2; }
 .chip[data-kind="law"]   { background: #7fd6d1; }
+.chip[data-kind="latin"] { background: #f2b48a; }
 
 .result-phrase { margin: 10px 0 4px; font-size: 26px; font-weight: 800; }
 .result-def { margin: 0 0 14px; color: #ffe1c2; }

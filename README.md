@@ -1,6 +1,6 @@
 # Catchphrase
 
-A daily office game. Each player in the league pulls a slot-machine lever and gets their own corporate-jargon phrase, niche word or eponymous law for the day. Work it into a meeting, tick it off, and win a point.
+A daily office game. Each player in the league pulls a slot-machine lever and gets their own piece of corporate jargon, posh vocabulary or Latin for the day ("the latter", "for all intents and purposes", "ceteris paribus"). Work it into a meeting, tick it off, and win a point.
 
 ## Rules
 
