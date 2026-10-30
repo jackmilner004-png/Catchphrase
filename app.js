@@ -9,7 +9,7 @@
   const PHRASES = window.PHRASES;
   const byId = new Map(PHRASES.map((p) => [p.id, p])); // includes retired phrases, for history
   const ACTIVE = PHRASES.filter((p) => !p.retired);
-  const KIND_LABEL = { jargon: "Corporate jargon", vocab: "Posh vocab", latin: "Latin & French", law: "Rule of thumb" };
+  const KIND_LABEL = { jargon: "Corporate jargon", vocab: "Fancy vocab", posh: "Proper posh", latin: "Latin & French", law: "Rule of thumb" };
 
   const $ = (id) => document.getElementById(id);
   const el = {
