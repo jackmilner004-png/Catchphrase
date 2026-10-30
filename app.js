@@ -9,13 +9,30 @@
   const PHRASES = window.PHRASES;
   const byId = new Map(PHRASES.map((p) => [p.id, p])); // includes retired phrases, for history
   const ACTIVE = PHRASES.filter((p) => !p.retired);
-  const KIND_LABEL = { jargon: "Corporate jargon", vocab: "Fancy vocab", posh: "Proper posh", latin: "Latin & French", law: "Rule of thumb" };
+  const KIND_LABEL = {
+    jargon: "Corporate jargon", vocab: "Fancy vocab", posh: "Proper posh",
+    inbox: "Inbox classic", latin: "Latin & French", law: "Rule of thumb",
+  };
+
+  // Each machine deals from its own pool and keeps its own daily record in the league.
+  // Meeting history lives in league.days so leagues saved before email existed still load.
+  const CHANNELS = [
+    {
+      id: "meeting", store: "days", icon: "🎤", title: "Meeting", sub: "Say it out loud",
+      pool: ACTIVE.filter((p) => p.use !== "email"),
+      claim: "I said it in a meeting! (+1)", tick: "Said it",
+    },
+    {
+      id: "email", store: "emailDays", icon: "✉️", title: "Email", sub: "Slip it into an email",
+      pool: ACTIVE.filter((p) => p.use === "email"),
+      claim: "I sent it in an email! (+1)", tick: "Sent it",
+    },
+  ];
 
   const $ = (id) => document.getElementById(id);
   const el = {
-    reel: $("reel"), strip: $("strip"), select: $("playerSelect"), spin: $("spinBtn"), lever: $("lever"),
-    result: $("result"), resultKind: $("resultKind"), resultPhrase: $("resultPhrase"), resultDef: $("resultDef"),
-    claim: $("claimBtn"), skip: $("skipBtn"), dateline: $("dateline"), table: $("table"), empty: $("empty"),
+    machines: $("machines"), tpl: $("machineTpl"), select: $("playerSelect"),
+    dateline: $("dateline"), table: $("table"), empty: $("empty"),
     addForm: $("addForm"), nameInput: $("nameInput"), sound: $("soundBtn"),
     copyLink: $("copyLinkBtn"), exportBtn: $("exportBtn"), importInput: $("importInput"), shareNote: $("shareNote"),
     confetti: $("confetti"),
@@ -34,13 +51,13 @@
     try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* private mode etc. */ }
   }
 
-  const emptyLeague = () => ({ version: 1, players: [], days: {} });
+  const emptyLeague = () => ({ version: 1, players: [], days: {}, emailDays: {} });
   let league = normalise(load(STORE_KEY, null)) || emptyLeague();
   let prefs = Object.assign({ selected: null, sound: true }, load(PREFS_KEY, {}));
 
   function normalise(data) {
     if (!data || !Array.isArray(data.players) || typeof data.days !== "object") return null;
-    return { version: 1, players: data.players, days: data.days || {} };
+    return { version: 1, players: data.players, days: data.days || {}, emailDays: data.emailDays || {} };
   }
   const persist = () => save(STORE_KEY, league);
   const persistPrefs = () => save(PREFS_KEY, prefs);
@@ -80,54 +97,52 @@
   }
 
   // ── League logic ────────────────────────────────────────────────────
-  const dayOf = (key) => (league.days[key] ||= {});
-  const entryFor = (pid, key = today) => league.days[key]?.[pid];
+  const dayOf = (ch, key) => ((league[ch.store] ||= {})[key] ||= {});
+  const entryFor = (pid, ch, key = today) => league[ch.store]?.[key]?.[pid];
+  const selectedPlayer = () => league.players.find((p) => p.id === prefs.selected);
 
-  function assignPhrase(player, skipped = []) {
-    const todays = dayOf(today);
+  function assignPhrase(player, ch, skipped = []) {
+    const todays = dayOf(ch, today);
     const takenToday = new Set([...Object.values(todays).map((e) => e.p), ...skipped]);
     const recent = new Set();
     for (let i = 1; i <= NO_REPEAT_DAYS; i++) {
-      const e = entryFor(player.id, shiftDay(today, -i));
+      const e = entryFor(player.id, ch, shiftDay(today, -i));
       if (e) recent.add(e.p);
     }
-    let pool = ACTIVE.filter((p) => !takenToday.has(p.id) && !recent.has(p.id));
-    if (!pool.length) pool = ACTIVE.filter((p) => !takenToday.has(p.id));
-    if (!pool.length) pool = ACTIVE;
-    const seed = skipped.length ? `${today}|${player.id}|skip${skipped.length}` : `${today}|${player.id}`;
+    let pool = ch.pool.filter((p) => !takenToday.has(p.id) && !recent.has(p.id));
+    if (!pool.length) pool = ch.pool.filter((p) => !takenToday.has(p.id));
+    if (!pool.length) pool = ch.pool;
+    let seed = ch.id === "meeting" ? `${today}|${player.id}` : `${today}|${player.id}|${ch.id}`;
+    if (skipped.length) seed += `|skip${skipped.length}`;
     const pick = pool[Math.floor(rng(hash(seed))() * pool.length)];
     todays[player.id] = skipped.length ? { p: pick.id, done: false, skipped } : { p: pick.id, done: false };
     persist();
     return todays[player.id];
   }
 
-  // One skip per player per day: swap today's phrase for a fresh one, before claiming.
+  // One skip per player per machine per day: swap the phrase for a fresh one, before claiming.
   const canSkip = (e) => e && !e.done && !e.skipped;
 
-  function skipPhrase() {
-    if (spinning) return;
-    const player = league.players.find((p) => p.id === prefs.selected);
-    const e = player && entryFor(player.id);
-    if (!canSkip(e)) return;
-    if (!confirm(`Skip “${byId.get(e.p).text}”? You'll get a new phrase and can't go back to this one.`)) return;
-    assignPhrase(player, [e.p]);
-    spin();
-  }
-
   function stats(pid) {
-    let points = 0;
-    for (const day of Object.values(league.days)) if (day[pid]?.done) points++;
+    const pointsOn = (key) => CHANNELS.filter((ch) => entryFor(pid, ch, key)?.done).length;
+    const spunOn = (key) => CHANNELS.some((ch) => entryFor(pid, ch, key));
 
-    // Streak counts back from today; an unscored today doesn't break it yet.
+    let points = 0;
+    for (const ch of CHANNELS) {
+      for (const day of Object.values(league[ch.store] || {})) if (day[pid]?.done) points++;
+    }
+
+    // Streak = consecutive days with at least one point; an unscored today doesn't break it yet.
     let streak = 0;
-    let key = entryFor(pid)?.done ? today : shiftDay(today, -1);
-    while (entryFor(pid, key)?.done) { streak++; key = shiftDay(key, -1); }
+    let key = pointsOn(today) ? today : shiftDay(today, -1);
+    while (pointsOn(key)) { streak++; key = shiftDay(key, -1); }
 
     const week = [];
     for (let i = 6; i >= 0; i--) {
-      const e = entryFor(pid, shiftDay(today, -i));
+      const key = shiftDay(today, -i);
+      const n = pointsOn(key);
       // Today isn't a miss until the day is over.
-      week.push(e ? (e.done ? "hit" : i === 0 ? "pending" : "miss") : "");
+      week.push(n === 2 ? "hit2" : n === 1 ? "hit" : !spunOn(key) ? "" : i === 0 ? "pending" : "miss");
     }
     return { points, streak, week };
   }
@@ -142,24 +157,20 @@
     const id = `p${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
     league.players.push({ id, name: clean });
     persist();
-    prefs.selected = id;
-    persistPrefs();
-    renderAll();
+    selectPlayer(id);
   }
 
   function removePlayer(pid) {
     const p = league.players.find((x) => x.id === pid);
     if (!p || !confirm(`Remove ${p.name} from the league? Their points will be lost.`)) return;
     league.players = league.players.filter((x) => x.id !== pid);
-    for (const day of Object.values(league.days)) delete day[pid];
+    for (const ch of CHANNELS) for (const day of Object.values(league[ch.store] || {})) delete day[pid];
     persist();
-    if (prefs.selected === pid) prefs.selected = league.players[0]?.id || null;
-    persistPrefs();
-    renderAll();
+    selectPlayer(prefs.selected === pid ? league.players[0]?.id || null : prefs.selected);
   }
 
-  function toggleClaim(pid) {
-    const e = entryFor(pid);
+  function toggleClaim(pid, ch) {
+    const e = entryFor(pid, ch);
     if (!e) return;
     e.done = !e.done;
     persist();
@@ -193,9 +204,7 @@
     };
   })();
 
-  // ── Reel ────────────────────────────────────────────────────────────
-  let spinning = false;
-
+  // ── Machines ────────────────────────────────────────────────────────
   function cell(phrase, extraClass = "") {
     const div = document.createElement("div");
     div.className = `cell ${extraClass}`.trim();
@@ -210,97 +219,151 @@
     div.textContent = text;
     return div;
   }
-  const randomPhrase = () => ACTIVE[Math.floor(Math.random() * ACTIVE.length)];
-  const rowHeight = () => el.strip.firstElementChild?.offsetHeight || 84;
 
-  function showStatic(phraseId) {
-    el.strip.style.transition = "none";
-    el.strip.style.transform = "translateY(0)";
-    el.reel.classList.remove("win");
-    if (phraseId) {
-      el.strip.replaceChildren(cell(randomPhrase()), cell(byId.get(phraseId), "target"), cell(randomPhrase()));
-    } else {
-      el.strip.replaceChildren(idleCell("★ ★ ★"), idleCell("Pull to spin"), idleCell("★ ★ ★"));
-    }
-  }
-
-  function spin() {
-    if (spinning) return;
-    const player = league.players.find((p) => p.id === prefs.selected);
-    if (!player) {
-      el.nameInput.focus();
-      flashNote("Add a player first.");
-      return;
-    }
-    const entry = entryFor(player.id) || assignPhrase(player);
-    const target = byId.get(entry.p);
-
-    spinning = true;
-    setBusy(true);
-    pullLever();
-    el.reel.classList.remove("win");
-    el.result.hidden = true;
-
-    // Keep the three visible cells at the top so the reel doesn't jump, then add fillers.
-    const visible = Array.from(el.strip.children).slice(-3).map((c) => c.cloneNode(true));
-    visible.forEach((c) => c.classList.remove("target"));
-    const cells = [...visible];
-    for (let i = 0; i < FILLER_CELLS; i++) cells.push(cell(randomPhrase()));
-    const targetIndex = cells.length;
-    cells.push(cell(target, "target"), cell(randomPhrase()));
-
-    el.strip.style.transition = "none";
-    el.strip.style.transform = `translateY(-${Math.max(0, visible.length - 3) * rowHeight()}px)`;
-    el.strip.replaceChildren(...cells);
-    void el.strip.offsetHeight; // commit the start position
-
-    const h = rowHeight();
-    const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const duration = reduced ? 600 : 3600 + Math.random() * 600;
-    el.strip.classList.add("blur");
-    el.strip.style.transition = `transform ${duration}ms cubic-bezier(0.12, 0.72, 0.18, 1.02)`;
-    el.strip.style.transform = `translateY(-${(targetIndex - 1) * h}px)`;
-
-    // Click as each row passes the payline, and drop the motion blur as it slows.
-    let lastRow = 0;
-    const started = performance.now();
-    (function frame(now) {
-      if (!spinning) return;
-      const y = -new DOMMatrixReadOnly(getComputedStyle(el.strip).transform).m42;
-      const row = Math.floor(y / h);
-      if (row !== lastRow) { lastRow = row; sound.tick(); }
-      if (now - started > duration * 0.55) el.strip.classList.remove("blur");
-      requestAnimationFrame(frame);
-    })(started);
-
-    const finish = () => {
-      if (!spinning) return;
-      spinning = false;
-      el.strip.removeEventListener("transitionend", finish);
-      // Trim the strip back to three cells so the next spin starts cleanly.
-      el.strip.style.transition = "none";
-      el.strip.replaceChildren(...cells.slice(targetIndex - 1, targetIndex + 2));
-      el.strip.style.transform = "translateY(0)";
-      el.strip.classList.remove("blur");
-      el.reel.classList.add("win");
-      sound.land();
-      setBusy(false);
-      renderAll();
+  function createMachine(ch) {
+    const root = el.tpl.content.firstElementChild.cloneNode(true);
+    const q = (sel) => root.querySelector(sel);
+    const m = {
+      ch, spinning: false,
+      reel: q(".reel"), strip: q(".strip"), spin: q(".spin-btn"), lever: q(".lever"),
+      result: q(".result"), kind: q(".chip"), phrase: q(".result-phrase"), def: q(".result-def"),
+      claim: q(".claim-btn"), skip: q(".skip-btn"),
     };
-    el.strip.addEventListener("transitionend", finish);
-    setTimeout(finish, duration + 300); // safety net if transitionend never fires
+    root.dataset.channel = ch.id;
+    root.setAttribute("aria-label", `${ch.title} slot machine`);
+    q(".cab-title").textContent = `${ch.icon} ${ch.title}`;
+    q(".cab-sub").textContent = ch.sub;
+    m.lever.setAttribute("aria-label", `Pull the ${ch.title.toLowerCase()} lever to spin`);
+    el.machines.append(root);
+
+    const randomPhrase = () => ch.pool[Math.floor(Math.random() * ch.pool.length)];
+    const rowHeight = () => m.strip.firstElementChild?.offsetHeight || 84;
+
+    m.showStatic = (phraseId) => {
+      m.strip.style.transition = "none";
+      m.strip.style.transform = "translateY(0)";
+      m.reel.classList.remove("win");
+      if (phraseId) {
+        m.strip.replaceChildren(cell(randomPhrase()), cell(byId.get(phraseId), "target"), cell(randomPhrase()));
+      } else {
+        m.strip.replaceChildren(idleCell("★ ★ ★"), idleCell("Pull to spin"), idleCell("★ ★ ★"));
+      }
+    };
+
+    m.setBusy = (busy) => {
+      m.spinning = busy;
+      m.spin.disabled = busy;
+      m.lever.disabled = busy;
+      el.select.disabled = machines.some((x) => x.spinning);
+    };
+
+    m.doSpin = () => {
+      if (m.spinning) return;
+      const player = selectedPlayer();
+      if (!player) {
+        el.nameInput.focus();
+        flashNote("Add a player first.");
+        return;
+      }
+      const entry = entryFor(player.id, ch) || assignPhrase(player, ch);
+      const target = byId.get(entry.p);
+
+      m.setBusy(true);
+      m.lever.classList.add("pulled");
+      setTimeout(() => m.lever.classList.remove("pulled"), 260);
+      m.reel.classList.remove("win");
+      m.result.hidden = true;
+
+      // Keep the three visible cells at the top so the reel doesn't jump, then add fillers.
+      const cells = Array.from(m.strip.children).slice(-3).map((c) => c.cloneNode(true));
+      cells.forEach((c) => c.classList.remove("target"));
+      for (let i = 0; i < FILLER_CELLS; i++) cells.push(cell(randomPhrase()));
+      const targetIndex = cells.length;
+      cells.push(cell(target, "target"), cell(randomPhrase()));
+
+      m.strip.style.transition = "none";
+      m.strip.style.transform = "translateY(0)";
+      m.strip.replaceChildren(...cells);
+      void m.strip.offsetHeight; // commit the start position
+
+      const h = rowHeight();
+      const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const duration = reduced ? 600 : 3600 + Math.random() * 600;
+      m.strip.classList.add("blur");
+      m.strip.style.transition = `transform ${duration}ms cubic-bezier(0.12, 0.72, 0.18, 1.02)`;
+      m.strip.style.transform = `translateY(-${(targetIndex - 1) * h}px)`;
+
+      // Click as each row passes the payline, and drop the motion blur as it slows.
+      let lastRow = 0;
+      const started = performance.now();
+      (function frame(now) {
+        if (!m.spinning) return;
+        const y = -new DOMMatrixReadOnly(getComputedStyle(m.strip).transform).m42;
+        const row = Math.floor(y / h);
+        if (row !== lastRow) { lastRow = row; sound.tick(); }
+        if (now - started > duration * 0.55) m.strip.classList.remove("blur");
+        requestAnimationFrame(frame);
+      })(started);
+
+      const finish = () => {
+        if (!m.spinning) return;
+        m.strip.removeEventListener("transitionend", finish);
+        // Trim the strip back to three cells so the next spin starts cleanly.
+        m.strip.style.transition = "none";
+        m.strip.replaceChildren(...cells.slice(targetIndex - 1, targetIndex + 2));
+        m.strip.style.transform = "translateY(0)";
+        m.strip.classList.remove("blur");
+        m.reel.classList.add("win");
+        sound.land();
+        m.setBusy(false);
+        renderAll();
+      };
+      m.strip.addEventListener("transitionend", finish);
+      setTimeout(finish, duration + 300); // safety net if transitionend never fires
+    };
+
+    m.doSkip = () => {
+      if (m.spinning) return;
+      const player = selectedPlayer();
+      const e = player && entryFor(player.id, ch);
+      if (!canSkip(e)) return;
+      if (!confirm(`Skip “${byId.get(e.p).text}”? You'll get a new ${ch.title.toLowerCase()} phrase and can't go back to this one.`)) return;
+      assignPhrase(player, ch, [e.p]);
+      m.doSpin();
+    };
+
+    m.render = () => {
+      const entry = prefs.selected && entryFor(prefs.selected, ch);
+      m.spin.textContent = entry ? "Replay" : "Spin";
+      m.spin.title = entry ? "You've already spun today — this replays your phrase" : "Spin for today's phrase";
+      if (!entry) {
+        m.result.hidden = true;
+        return;
+      }
+      const phrase = byId.get(entry.p);
+      m.result.hidden = false;
+      m.kind.textContent = KIND_LABEL[phrase.kind];
+      m.kind.dataset.kind = phrase.kind;
+      m.phrase.textContent = `“${phrase.text}”`;
+      m.def.textContent = phrase.def;
+      m.claim.textContent = entry.done ? "✓ Point claimed — tap to undo" : ch.claim;
+      m.claim.classList.toggle("done", entry.done);
+      m.skip.disabled = !canSkip(entry);
+      m.skip.textContent = entry.skipped
+        ? "Skip used today"
+        : entry.done ? "No skipping after claiming" : "↻ Skip this one (1 left today)";
+    };
+
+    m.spin.addEventListener("click", m.doSpin);
+    m.lever.addEventListener("click", m.doSpin);
+    m.skip.addEventListener("click", m.doSkip);
+    m.claim.addEventListener("click", () => prefs.selected && toggleClaim(prefs.selected, ch));
+    return m;
   }
 
-  function pullLever() {
-    el.lever.classList.add("pulled");
-    setTimeout(() => el.lever.classList.remove("pulled"), 260);
-  }
-
-  function setBusy(busy) {
-    el.spin.disabled = busy;
-    el.lever.disabled = busy;
-    el.select.disabled = busy;
-  }
+  const machines = CHANNELS.map(createMachine);
+  const anySpinning = () => machines.some((m) => m.spinning);
+  const showStaticAll = () => machines.forEach((m) => m.showStatic(prefs.selected && entryFor(prefs.selected, m.ch)?.p));
 
   // ── Rendering ───────────────────────────────────────────────────────
   function h(tag, props = {}, ...children) {
@@ -324,48 +387,40 @@
     el.select.value = prefs.selected || "";
   }
 
-  function renderMachine() {
-    const pid = prefs.selected;
-    const entry = pid && entryFor(pid);
-    el.spin.textContent = entry ? "Replay" : "Spin";
-    el.spin.title = entry ? "You've already spun today — this replays your phrase" : "Spin for today's phrase";
-
-    if (!entry) {
-      el.result.hidden = true;
-      return;
-    }
-    const phrase = byId.get(entry.p);
-    el.result.hidden = false;
-    el.resultKind.textContent = KIND_LABEL[phrase.kind];
-    el.resultKind.dataset.kind = phrase.kind;
-    el.resultPhrase.textContent = `“${phrase.text}”`;
-    el.resultDef.textContent = phrase.def;
-    el.claim.textContent = entry.done ? "✓ Point claimed — tap to undo" : "I said it in a meeting! (+1)";
-    el.claim.classList.toggle("done", entry.done);
-    el.skip.disabled = !canSkip(entry);
-    el.skip.textContent = entry.skipped
-      ? "Skip used today"
-      : entry.done ? "No skipping after claiming" : "↻ Skip this one (1 left today)";
+  function renderDateline() {
+    const n = league.players.length;
+    const scored = league.players.reduce((sum, p) => sum + CHANNELS.filter((ch) => entryFor(p.id, ch)?.done).length, 0);
+    const date = new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" });
+    el.dateline.textContent = n ? `${date} · ${scored}/${n * CHANNELS.length} points claimed today` : date;
   }
 
-  function renderDateline() {
-    const spun = league.players.filter((p) => entryFor(p.id)).length;
-    const scored = league.players.filter((p) => entryFor(p.id)?.done).length;
-    const date = new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" });
-    el.dateline.textContent = league.players.length
-      ? `${date} · ${spun}/${league.players.length} spun · ${scored} scored today`
-      : date;
+  function slotLine(p, ch) {
+    const e = entryFor(p.id, ch);
+    const phrase = e && byId.get(e.p);
+    return h("div", { class: `slot${e?.done ? " scored" : ""}` },
+      h("span", { class: "slot-icon", title: ch.title }, ch.icon),
+      h("span", { class: "slot-text" },
+        phrase ? h("b", {}, phrase.text) : "Not spun yet",
+        e?.skipped ? h("small", {}, " · skipped one") : null),
+      e
+        ? h("button", {
+            type: "button",
+            class: `tick${e.done ? " done" : ""}`,
+            "aria-pressed": String(e.done),
+            "aria-label": `${ch.tick}: ${phrase.text}`,
+            onclick: (ev) => { ev.stopPropagation(); toggleClaim(p.id, ch); },
+          }, e.done ? `✓ ${ch.tick}` : `☐ ${ch.tick}?`)
+        : null);
   }
 
   function renderTable() {
     const rows = league.players
-      .map((p) => ({ p, s: stats(p.id), e: entryFor(p.id) }))
+      .map((p) => ({ p, s: stats(p.id) }))
       .sort((a, b) => b.s.points - a.s.points || a.p.name.localeCompare(b.p.name));
 
     let rank = 0, prevPoints = null;
-    el.table.replaceChildren(...rows.map(({ p, s, e }, i) => {
+    el.table.replaceChildren(...rows.map(({ p, s }, i) => {
       if (s.points !== prevPoints) { rank = i + 1; prevPoints = s.points; }
-      const phrase = e && byId.get(e.p);
       const select = () => selectPlayer(p.id);
 
       return h("li", {
@@ -374,24 +429,14 @@
         onclick: select,
         onkeydown: (ev) => { if (ev.key === "Enter" && ev.target === ev.currentTarget) select(); },
       },
-        h("span", { class: `rank r${rank}` }, String(rank)),
-        h("span", { class: "name", title: p.name }, p.name),
-        h("span", { class: "points" }, String(s.points), h("small", {}, s.points === 1 ? "pt" : "pts")),
-        h("span", { class: `today${e?.done ? " scored" : ""}` },
-          phrase ? h("b", {}, phrase.text) : "Hasn't spun today",
-          e?.skipped ? " · skipped one" : null),
-        h("span", { class: "meta" },
-          s.streak > 1 ? h("span", { title: `${s.streak}-day streak` }, `🔥${s.streak}`) : null,
-          h("span", { class: "dots", title: "Last 7 days" }, ...s.week.map((w) => h("span", { class: `dot ${w}` })))),
-        h("div", { class: "row-actions" },
-          e
-            ? h("button", {
-                type: "button",
-                class: `tick${e.done ? " done" : ""}`,
-                "aria-pressed": String(e.done),
-                onclick: (ev) => { ev.stopPropagation(); toggleClaim(p.id); },
-              }, e.done ? "✓ Said it" : "☐ Said it?")
-            : h("span", { class: "today" }, "Select & spin →"),
+        h("div", { class: "row-head" },
+          h("span", { class: `rank r${rank}` }, String(rank)),
+          h("span", { class: "name", title: p.name }, p.name,
+            s.streak > 1 ? h("span", { class: "streak", title: `${s.streak}-day streak` }, ` 🔥${s.streak}`) : null),
+          h("span", { class: "points" }, String(s.points), h("small", {}, s.points === 1 ? "pt" : "pts"))),
+        ...CHANNELS.map((ch) => slotLine(p, ch)),
+        h("div", { class: "row-foot" },
+          h("span", { class: "dots", title: "Last 7 days" }, ...s.week.map((w) => h("span", { class: `dot ${w}` }))),
           h("button", {
             type: "button",
             class: "remove",
@@ -405,17 +450,17 @@
 
   function renderAll() {
     renderSelect();
-    renderMachine();
+    machines.forEach((m) => m.render());
     renderTable();
     renderDateline();
   }
 
   function selectPlayer(pid) {
-    if (spinning) return;
+    if (anySpinning()) return;
     prefs.selected = pid;
     persistPrefs();
-    showStatic(entryFor(pid)?.p);
     renderAll();
+    showStaticAll();
   }
 
   // ── Confetti ────────────────────────────────────────────────────────
@@ -455,8 +500,8 @@
     if (league.players.length && !confirm(`Replace this browser's league with the one from the ${source}?`)) return false;
     league = next;
     persist();
-    showStatic(null);
     renderAll();
+    showStaticAll();
     flashNote(`League loaded from ${source}.`);
     return true;
   }
@@ -501,13 +546,8 @@
     ev.preventDefault();
     addPlayer(el.nameInput.value);
     el.nameInput.value = "";
-    showStatic(entryFor(prefs.selected)?.p);
   });
   el.select.addEventListener("change", () => selectPlayer(el.select.value));
-  el.spin.addEventListener("click", spin);
-  el.lever.addEventListener("click", spin);
-  el.claim.addEventListener("click", () => prefs.selected && toggleClaim(prefs.selected));
-  el.skip.addEventListener("click", skipPhrase);
   el.sound.addEventListener("click", () => {
     prefs.sound = !prefs.sound;
     persistPrefs();
@@ -520,14 +560,14 @@
   // Roll over to a new day if the page is left open past midnight.
   setInterval(() => {
     const now = dayKey();
-    if (now !== today && !spinning) {
+    if (now !== today && !anySpinning()) {
       today = now;
-      showStatic(entryFor(prefs.selected)?.p);
       renderAll();
+      showStaticAll();
     }
   }, 30_000);
 
   importFromHash();
   renderAll();
-  showStatic(entryFor(prefs.selected)?.p);
+  showStaticAll();
 })();

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Catchphrase</title>
-  <meta name="description" content="Spin for your daily phrase, slip it into a meeting, claim your point.">
+  <meta name="description" content="Spin for your daily phrases, slip one into a meeting and one into an email, claim your points.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Rubik:wght@400;500;700;800&display=swap" rel="stylesheet">
@@ -12,49 +12,24 @@
 </head>
 <body>
   <main class="wrap">
-    <!-- ── Slot machine ─────────────────────────────────────────── -->
-    <section class="machine" aria-label="Phrase slot machine">
-      <div class="cabinet">
-        <div class="marquee">
-          <div class="bulbs" aria-hidden="true"></div>
-          <h1>Catch<span>phrase</span></h1>
-          <p class="tagline">Say it in a meeting. Claim your point.</p>
-        </div>
-
-        <div class="reel-frame">
-          <span class="payline left" aria-hidden="true"></span>
-          <div class="reel" id="reel" aria-live="polite">
-            <div class="strip" id="strip"></div>
-          </div>
-          <span class="payline right" aria-hidden="true"></span>
-        </div>
-
-        <div class="controls">
-          <label class="player-pick">
-            <span>Player</span>
-            <select id="playerSelect"></select>
-          </label>
-          <button class="spin-btn" id="spinBtn" type="button">Spin</button>
-        </div>
-
-        <div class="result" id="result" hidden>
-          <span class="chip" id="resultKind"></span>
-          <p class="result-phrase" id="resultPhrase"></p>
-          <p class="result-def" id="resultDef"></p>
-          <div class="result-actions">
-            <button class="claim-btn" id="claimBtn" type="button"></button>
-            <button class="skip-btn" id="skipBtn" type="button"></button>
-          </div>
-        </div>
-
+    <!-- ── Masthead & player ────────────────────────────────────── -->
+    <header class="masthead">
+      <div class="marquee">
+        <div class="bulbs" aria-hidden="true"></div>
+        <h1>Catch<span>phrase</span></h1>
+        <p class="tagline">Say it. Send it. Claim your points.</p>
+      </div>
+      <div class="player-bar">
+        <label class="player-pick">
+          <span>Player</span>
+          <select id="playerSelect"></select>
+        </label>
         <p class="dateline" id="dateline"></p>
       </div>
+    </header>
 
-      <button class="lever" id="lever" type="button" aria-label="Pull the lever to spin">
-        <span class="lever-arm"><span class="lever-knob"></span></span>
-        <span class="lever-base"></span>
-      </button>
-    </section>
+    <!-- ── Slot machines (filled from the template below) ───────── -->
+    <div class="machines" id="machines"></div>
 
     <!-- ── League table ─────────────────────────────────────────── -->
     <section class="league" aria-labelledby="leagueTitle">
@@ -69,31 +44,72 @@
       </form>
 
       <ol class="table" id="table"></ol>
-      <p class="empty" id="empty">No players yet. Add the league above, then take turns pulling the lever.</p>
+      <p class="empty" id="empty">No players yet. Add the league above, then take turns pulling the levers.</p>
 
-      <details class="rules">
-        <summary>How it works</summary>
-        <ol>
-          <li>Each player spins once a day and gets their own phrase. No two players get the same phrase on the same day, and the reel won't re-roll.</li>
-          <li>Hate your phrase? You get <strong>one skip a day</strong> for a fresh spin. No going back, and no skipping once you've claimed the point.</li>
-          <li>Work it into a meeting, naturally (ish). Someone else has to hear it.</li>
-          <li>Tick it off for <strong>1 point</strong>. One point per player per day; yesterday's chances are gone.</li>
-          <li>The dots show the last 7 days: <span class="dot hit"></span> scored, <span class="dot miss"></span> missed, <span class="dot pending"></span> still to play today.</li>
-        </ol>
-      </details>
+      <div class="league-foot">
+        <details class="rules">
+          <summary>How it works</summary>
+          <ol>
+            <li>There are two machines. Each day every player spins both: one phrase to <strong>say in a meeting</strong> and one to <strong>write in an email</strong>.</li>
+            <li>No two players get the same phrase on the same day, and the reels won't re-roll.</li>
+            <li>Hate a phrase? You get <strong>one skip per machine per day</strong>. No going back, and no skipping once you've claimed the point.</li>
+            <li>Work it in naturally (ish). For meetings someone has to hear it; for emails it has to be sent to someone.</li>
+            <li>Each one ticked off is <strong>1 point</strong>, so up to 2 points per player per day. Yesterday's chances are gone.</li>
+            <li>The dots show the last 7 days: <span class="dot hit2"></span> both, <span class="dot hit"></span> one, <span class="dot miss"></span> missed, <span class="dot pending"></span> still to play today.</li>
+          </ol>
+        </details>
 
-      <details class="rules">
-        <summary>Share &amp; back up</summary>
-        <p>The league is saved in this browser. To move it to another device or let someone else keep score, copy the league link and open it there, or download a backup file.</p>
-        <div class="share-row">
-          <button type="button" id="copyLinkBtn">Copy league link</button>
-          <button type="button" id="exportBtn">Download backup</button>
-          <label class="file-btn">Restore backup<input type="file" id="importInput" accept="application/json,.json" hidden></label>
-        </div>
-        <p class="note" id="shareNote" role="status"></p>
-      </details>
+        <details class="rules">
+          <summary>Share &amp; back up</summary>
+          <p>The league is saved in this browser. To move it to another device or let someone else keep score, copy the league link and open it there, or download a backup file.</p>
+          <div class="share-row">
+            <button type="button" id="copyLinkBtn">Copy league link</button>
+            <button type="button" id="exportBtn">Download backup</button>
+            <label class="file-btn">Restore backup<input type="file" id="importInput" accept="application/json,.json" hidden></label>
+          </div>
+          <p class="note" id="shareNote" role="status"></p>
+        </details>
+      </div>
     </section>
   </main>
+
+  <template id="machineTpl">
+    <section class="machine">
+      <div class="cabinet">
+        <div class="cab-head">
+          <h2 class="cab-title"></h2>
+          <p class="cab-sub"></p>
+        </div>
+
+        <div class="reel-frame">
+          <span class="payline left" aria-hidden="true"></span>
+          <div class="reel" aria-live="polite">
+            <div class="strip"></div>
+          </div>
+          <span class="payline right" aria-hidden="true"></span>
+        </div>
+
+        <div class="controls">
+          <button class="spin-btn" type="button">Spin</button>
+        </div>
+
+        <div class="result" hidden>
+          <span class="chip"></span>
+          <p class="result-phrase"></p>
+          <p class="result-def"></p>
+          <div class="result-actions">
+            <button class="claim-btn" type="button"></button>
+            <button class="skip-btn" type="button"></button>
+          </div>
+        </div>
+      </div>
+
+      <button class="lever" type="button">
+        <span class="lever-arm"><span class="lever-knob"></span></span>
+        <span class="lever-base"></span>
+      </button>
+    </section>
+  </template>
 
   <div class="confetti" id="confetti" aria-hidden="true"></div>
 
