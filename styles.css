@@ -245,6 +245,7 @@ button { font: inherit; cursor: pointer; }
 .cell[data-kind="latin"] { color: #8a3b12; }
 .cell[data-kind="posh"]  { color: #1d3f8a; }
 .cell[data-kind="inbox"] { color: #7a4a00; }
+.cell[data-kind="refined"] { color: #14365e; }
 .cell.idle { color: #b8a9a0; font-family: "Bungee", sans-serif; font-weight: 400; letter-spacing: 2px; }
 
 .reel.win .cell.target { animation: flash 0.35s ease-in-out 4 alternate; }
@@ -334,9 +335,17 @@ select {
 .chip[data-kind="latin"] { background: #f2b48a; }
 .chip[data-kind="posh"]  { background: #9fc2ff; }
 .chip[data-kind="inbox"] { background: #ffd07a; }
+.chip[data-kind="refined"] { background: #cfe0ff; }
 
 .result-phrase { margin: 10px 0 4px; font-size: 26px; font-weight: 800; }
 .result-def { margin: 0 0 14px; color: #ffe1c2; }
+.result-eg {
+  margin: -6px auto 14px;
+  max-width: 34em;
+  font-style: italic;
+  font-size: 14px;
+  color: #d6e4ff;
+}
 
 .claim-btn {
   border: 0;

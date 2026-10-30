@@ -11,7 +11,7 @@
   const ACTIVE = PHRASES.filter((p) => !p.retired);
   const KIND_LABEL = {
     jargon: "Corporate jargon", vocab: "Fancy vocab", posh: "Proper posh",
-    inbox: "Inbox classic", latin: "Latin & French", law: "Rule of thumb",
+    refined: "Refined vocab", inbox: "Inbox classic", latin: "Latin & French", law: "Rule of thumb",
   };
 
   // Each machine deals from its own pool and keeps its own daily record in the league.
@@ -226,7 +226,7 @@
     const m = {
       ch, spinning: false,
       reel: q(".reel"), strip: q(".strip"), spin: q(".spin-btn"), lever: q(".lever"),
-      result: q(".result"), kind: q(".chip"), phrase: q(".result-phrase"), def: q(".result-def"),
+      result: q(".result"), kind: q(".chip"), phrase: q(".result-phrase"), def: q(".result-def"), eg: q(".result-eg"),
       claim: q(".claim-btn"), skip: q(".skip-btn"),
     };
     root.dataset.channel = ch.id;
@@ -346,6 +346,8 @@
       m.kind.dataset.kind = phrase.kind;
       m.phrase.textContent = `“${phrase.text}”`;
       m.def.textContent = phrase.def;
+      m.eg.hidden = !phrase.eg;
+      m.eg.textContent = phrase.eg ? `e.g. “${phrase.eg}”` : "";
       m.claim.textContent = entry.done ? "✓ Point claimed — tap to undo" : ch.claim;
       m.claim.classList.toggle("done", entry.done);
       m.skip.disabled = !canSkip(entry);

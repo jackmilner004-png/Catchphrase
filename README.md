@@ -1,6 +1,6 @@
 # Catchphrase
 
-A daily office game with two slot machines. Each day every player in the league spins one phrase to **say in a meeting** ("tickety-boo", "let's timebox it") and one to **write in an email** ("notwithstanding", "per my last email"). Use them, tick them off, and win points.
+A daily office game with two slot machines. Each day every player in the league spins one phrase to **say in a meeting** ("tickety-boo", "let's timebox it") and one refined word to **use in an email** ("notwithstanding", "commensurate", "apposite"), shown with an example sentence. Use them, tick them off, and win points.
 
 ## Rules
 
@@ -20,4 +20,4 @@ The league is saved in the browser's `localStorage`. To keep score from another 
 
 ## Adding phrases
 
-Edit `phrases.js`. Give each new entry a fresh `id` and never reuse or renumber existing ids, since saved history refers to them. Add `use: "email"` to put a phrase on the email machine; everything else goes on the meeting machine. To take one out of rotation, add `retired: true` rather than deleting it.
+Edit `phrases.js`. Give each new entry a fresh `id` and never reuse or renumber existing ids, since saved history refers to them. Add `use: "email"` (plus an `eg` example sentence) to put a phrase on the email machine; everything else goes on the meeting machine. To take one out of rotation, add `retired: true` rather than deleting it.
