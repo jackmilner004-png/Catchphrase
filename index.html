@@ -41,7 +41,10 @@
           <span class="chip" id="resultKind"></span>
           <p class="result-phrase" id="resultPhrase"></p>
           <p class="result-def" id="resultDef"></p>
-          <button class="claim-btn" id="claimBtn" type="button"></button>
+          <div class="result-actions">
+            <button class="claim-btn" id="claimBtn" type="button"></button>
+            <button class="skip-btn" id="skipBtn" type="button"></button>
+          </div>
         </div>
 
         <p class="dateline" id="dateline"></p>
@@ -72,6 +75,7 @@
         <summary>How it works</summary>
         <ol>
           <li>Each player spins once a day and gets their own phrase. No two players get the same phrase on the same day, and the reel won't re-roll.</li>
+          <li>Hate your phrase? You get <strong>one skip a day</strong> for a fresh spin. No going back, and no skipping once you've claimed the point.</li>
           <li>Work it into a meeting, naturally (ish). Someone else has to hear it.</li>
           <li>Tick it off for <strong>1 point</strong>. One point per player per day; yesterday's chances are gone.</li>
           <li>The dots show the last 7 days: <span class="dot hit"></span> scored, <span class="dot miss"></span> missed, <span class="dot pending"></span> still to play today.</li>

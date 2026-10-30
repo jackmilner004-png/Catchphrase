@@ -288,6 +288,20 @@ select {
   color: #062b14;
   box-shadow: 0 4px 0 #1b8a4a;
 }
+.result-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; align-items: center; }
+
+.skip-btn {
+  border: 2px solid rgba(255, 246, 224, 0.4);
+  border-radius: 12px;
+  padding: 10px 16px;
+  font-weight: 700;
+  font-size: 14px;
+  background: transparent;
+  color: var(--cream);
+}
+.skip-btn:hover:not(:disabled) { border-color: var(--gold); color: var(--gold); }
+.skip-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
 .claim-btn.done { background: #e9e2d0; color: #3a3a3a; box-shadow: 0 4px 0 #a39f92; }
 
 .dateline {

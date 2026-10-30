@@ -5,6 +5,7 @@ A daily office game. Each player in the league pulls a slot-machine lever and ge
 ## Rules
 
 - One spin per player per day. The reel won't re-roll: spinning again replays the same phrase.
+- One skip per player per day: swap your phrase for a fresh spin. You can't go back to the skipped phrase, and you can't skip after claiming the point.
 - No two players get the same phrase on the same day, and a player won't see a repeat for 60 days.
 - Saying it in a meeting earns **1 point**. One point per player per day; past days are locked.
 - The league table ranks by total points and shows streaks plus the last 7 days.

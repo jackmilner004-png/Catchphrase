@@ -14,7 +14,7 @@
   const el = {
     reel: $("reel"), strip: $("strip"), select: $("playerSelect"), spin: $("spinBtn"), lever: $("lever"),
     result: $("result"), resultKind: $("resultKind"), resultPhrase: $("resultPhrase"), resultDef: $("resultDef"),
-    claim: $("claimBtn"), dateline: $("dateline"), table: $("table"), empty: $("empty"),
+    claim: $("claimBtn"), skip: $("skipBtn"), dateline: $("dateline"), table: $("table"), empty: $("empty"),
     addForm: $("addForm"), nameInput: $("nameInput"), sound: $("soundBtn"),
     copyLink: $("copyLinkBtn"), exportBtn: $("exportBtn"), importInput: $("importInput"), shareNote: $("shareNote"),
     confetti: $("confetti"),
@@ -82,9 +82,9 @@
   const dayOf = (key) => (league.days[key] ||= {});
   const entryFor = (pid, key = today) => league.days[key]?.[pid];
 
-  function assignPhrase(player) {
+  function assignPhrase(player, skipped = []) {
     const todays = dayOf(today);
-    const takenToday = new Set(Object.values(todays).map((e) => e.p));
+    const takenToday = new Set([...Object.values(todays).map((e) => e.p), ...skipped]);
     const recent = new Set();
     for (let i = 1; i <= NO_REPEAT_DAYS; i++) {
       const e = entryFor(player.id, shiftDay(today, -i));
@@ -93,10 +93,24 @@
     let pool = PHRASES.filter((p) => !takenToday.has(p.id) && !recent.has(p.id));
     if (!pool.length) pool = PHRASES.filter((p) => !takenToday.has(p.id));
     if (!pool.length) pool = PHRASES;
-    const pick = pool[Math.floor(rng(hash(`${today}|${player.id}`))() * pool.length)];
-    todays[player.id] = { p: pick.id, done: false };
+    const seed = skipped.length ? `${today}|${player.id}|skip${skipped.length}` : `${today}|${player.id}`;
+    const pick = pool[Math.floor(rng(hash(seed))() * pool.length)];
+    todays[player.id] = skipped.length ? { p: pick.id, done: false, skipped } : { p: pick.id, done: false };
     persist();
     return todays[player.id];
+  }
+
+  // One skip per player per day: swap today's phrase for a fresh one, before claiming.
+  const canSkip = (e) => e && !e.done && !e.skipped;
+
+  function skipPhrase() {
+    if (spinning) return;
+    const player = league.players.find((p) => p.id === prefs.selected);
+    const e = player && entryFor(player.id);
+    if (!canSkip(e)) return;
+    if (!confirm(`Skip “${byId.get(e.p).text}”? You'll get a new phrase and can't go back to this one.`)) return;
+    assignPhrase(player, [e.p]);
+    spin();
   }
 
   function stats(pid) {
@@ -327,6 +341,10 @@
     el.resultDef.textContent = phrase.def;
     el.claim.textContent = entry.done ? "✓ Point claimed — tap to undo" : "I said it in a meeting! (+1)";
     el.claim.classList.toggle("done", entry.done);
+    el.skip.disabled = !canSkip(entry);
+    el.skip.textContent = entry.skipped
+      ? "Skip used today"
+      : entry.done ? "No skipping after claiming" : "↻ Skip this one (1 left today)";
   }
 
   function renderDateline() {
@@ -359,7 +377,8 @@
         h("span", { class: "name", title: p.name }, p.name),
         h("span", { class: "points" }, String(s.points), h("small", {}, s.points === 1 ? "pt" : "pts")),
         h("span", { class: `today${e?.done ? " scored" : ""}` },
-          phrase ? h("b", {}, phrase.text) : "Hasn't spun today"),
+          phrase ? h("b", {}, phrase.text) : "Hasn't spun today",
+          e?.skipped ? " · skipped one" : null),
         h("span", { class: "meta" },
           s.streak > 1 ? h("span", { title: `${s.streak}-day streak` }, `🔥${s.streak}`) : null,
           h("span", { class: "dots", title: "Last 7 days" }, ...s.week.map((w) => h("span", { class: `dot ${w}` })))),
@@ -487,6 +506,7 @@
   el.spin.addEventListener("click", spin);
   el.lever.addEventListener("click", spin);
   el.claim.addEventListener("click", () => prefs.selected && toggleClaim(prefs.selected));
+  el.skip.addEventListener("click", skipPhrase);
   el.sound.addEventListener("click", () => {
     prefs.sound = !prefs.sound;
     persistPrefs();
