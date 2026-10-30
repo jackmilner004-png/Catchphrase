@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Catchphrase</title>
+  <meta name="description" content="Spin for your daily phrase, slip it into a meeting, claim your point.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bungee&family=Rubik:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="wrap">
+    <!-- ── Slot machine ─────────────────────────────────────────── -->
+    <section class="machine" aria-label="Phrase slot machine">
+      <div class="cabinet">
+        <div class="marquee">
+          <div class="bulbs" aria-hidden="true"></div>
+          <h1>Catch<span>phrase</span></h1>
+          <p class="tagline">Say it in a meeting. Claim your point.</p>
+        </div>
+
+        <div class="reel-frame">
+          <span class="payline left" aria-hidden="true"></span>
+          <div class="reel" id="reel" aria-live="polite">
+            <div class="strip" id="strip"></div>
+          </div>
+          <span class="payline right" aria-hidden="true"></span>
+        </div>
+
+        <div class="controls">
+          <label class="player-pick">
+            <span>Player</span>
+            <select id="playerSelect"></select>
+          </label>
+          <button class="spin-btn" id="spinBtn" type="button">Spin</button>
+        </div>
+
+        <div class="result" id="result" hidden>
+          <span class="chip" id="resultKind"></span>
+          <p class="result-phrase" id="resultPhrase"></p>
+          <p class="result-def" id="resultDef"></p>
+          <button class="claim-btn" id="claimBtn" type="button"></button>
+        </div>
+
+        <p class="dateline" id="dateline"></p>
+      </div>
+
+      <button class="lever" id="lever" type="button" aria-label="Pull the lever to spin">
+        <span class="lever-arm"><span class="lever-knob"></span></span>
+        <span class="lever-base"></span>
+      </button>
+    </section>
+
+    <!-- ── League table ─────────────────────────────────────────── -->
+    <section class="league" aria-labelledby="leagueTitle">
+      <div class="league-head">
+        <h2 id="leagueTitle">League table</h2>
+        <button class="icon-btn" id="soundBtn" type="button" aria-pressed="true" title="Toggle sound">🔊</button>
+      </div>
+
+      <form class="add-player" id="addForm" autocomplete="off">
+        <input id="nameInput" type="text" maxlength="24" placeholder="Add a player…" aria-label="Player name" required>
+        <button type="submit">Add</button>
+      </form>
+
+      <ol class="table" id="table"></ol>
+      <p class="empty" id="empty">No players yet. Add the league above, then take turns pulling the lever.</p>
+
+      <details class="rules">
+        <summary>How it works</summary>
+        <ol>
+          <li>Each player spins once a day and gets their own phrase. No two players get the same phrase on the same day, and the reel won't re-roll.</li>
+          <li>Work it into a meeting, naturally (ish). Someone else has to hear it.</li>
+          <li>Tick it off for <strong>1 point</strong>. One point per player per day; yesterday's chances are gone.</li>
+          <li>The dots show the last 7 days: <span class="dot hit"></span> scored, <span class="dot miss"></span> missed, <span class="dot pending"></span> still to play today.</li>
+        </ol>
+      </details>
+
+      <details class="rules">
+        <summary>Share &amp; back up</summary>
+        <p>The league is saved in this browser. To move it to another device or let someone else keep score, copy the league link and open it there, or download a backup file.</p>
+        <div class="share-row">
+          <button type="button" id="copyLinkBtn">Copy league link</button>
+          <button type="button" id="exportBtn">Download backup</button>
+          <label class="file-btn">Restore backup<input type="file" id="importInput" accept="application/json,.json" hidden></label>
+        </div>
+        <p class="note" id="shareNote" role="status"></p>
+      </details>
+    </section>
+  </main>
+
+  <div class="confetti" id="confetti" aria-hidden="true"></div>
+
+  <script src="phrases.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
